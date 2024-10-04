@@ -16,7 +16,7 @@ class Channel(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     tg_url: Mapped[str] = mapped_column(String(50))
-    name: Mapped[str] = mapped_column(String(25))
+    name: Mapped[str] = mapped_column(String(25), unique=True)
 
 
 async def async_main():
