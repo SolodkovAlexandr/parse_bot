@@ -1,13 +1,12 @@
-from typing import List, Dict
+from typing import Dict
 
-import sqlalchemy.exc
 from aiogram import Router, F
 from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 from aiogram.types import Message
 
-from database import get_all_channels, set_channel, delete_channel, Channel
+from database.methods import add_user, add_channel, get_users_channels, delete_channel_by_user_id
 from keyboards.simple_kb import create_nav_menu
 from lexicon import LEXICON
 from utils import FSMChannelState, parse_text_link
@@ -18,18 +17,19 @@ router: Router = Router()
 # команда старт, дефолтный стейт
 @router.message(CommandStart(), StateFilter(default_state))
 async def process_start_command(message: Message):
-    await message.answer(text=LEXICON['hello'], reply_markup=create_nav_menu(
+    user = await add_user(tg_id=message.from_user.id, username=message.from_user.username)
+    await message.answer(text=LEXICON['hello'].format(message.from_user.username), reply_markup=create_nav_menu(
         'add_ch', 'del_ch', 'get_ch', 'result'
     ))
 
 
-# конанда назад из машины состояний
+# команда назад из машины состояний
 @router.message(F.text == LEXICON['back'], ~StateFilter(default_state))
-async def process_to_back(message: Message, state: FSMContext):
+async def process_to_back_state(message: Message, state: FSMContext):
+    await state.clear()
     await message.answer(text=LEXICON['cancel'], reply_markup=create_nav_menu(
         'add_ch', 'del_ch', 'get_ch', 'result'
     ))
-    await state.clear()
 
 
 # нажали на кнопку добавить канал, ставим стейт добавления
@@ -51,14 +51,19 @@ async def process_add_channel_sent(message: Message, state: FSMContext):
     if tg_url.startswith('https://t.me/'):
         tg_url = tg_url[13:]
 
-    try:
-        await set_channel(tg_url=tg_url, name=' '.join(name))
+    new_channel = await add_channel(
+        user_id=message.from_user.id,
+        username=message.from_user.username,
+        channel_name=' '.join(name),
+        channel_url=tg_url
+    )
+    if new_channel:
         await message.answer(text=LEXICON['success_add'], reply_markup=create_nav_menu(
             'add_ch', 'del_ch', 'get_ch', 'result'
         ))
         await state.clear()
-    except sqlalchemy.exc.IntegrityError:
-        await message.answer(text=LEXICON['not_uniq_name'].format(name))
+    else:
+        await message.answer(text=LEXICON['not_uniq_name'].format(*name))
 
 
 # ввели некорректный текст
@@ -77,40 +82,48 @@ async def process_to_del_channel(message: Message, state: FSMContext):
     await state.set_state(FSMChannelState.del_channel)
 
 
-@router.message(StateFilter(FSMChannelState.del_channel), F.text.isalnum())
+# успешно удаляем канал
+@router.message(StateFilter(FSMChannelState.del_channel), F.text)
 async def process_to_del_channel_sent(message: Message, state: FSMContext):
-    # try:
-    await delete_channel(name=message.text)
-    #     await message.answer(text=LEXICON['success_del'])
-    #     await state.clear()
-    # except sqlalchemy.exc.InvalidRequestError:
-    #     await message.answer(text=LEXICON['channel_not_found'])
+    deleted = await delete_channel_by_user_id(channel_name=message.text, user_id=message.from_user.id)
+    if deleted:
+        await message.answer(
+            text=LEXICON['success_del'],
+            reply_markup=create_nav_menu(
+                'add_ch', 'del_ch', 'get_ch', 'result'
+            )
+        )
+        await state.clear()
+    else:
+        await message.answer(text=LEXICON['channel_not_found'])
 
 
 @router.message(F.text == LEXICON['get_ch'])
-async def process_to_add_channel(message: Message):
-    all_channels = [i.name for i in await get_all_channels()]
-    if all_channels:
-        await message.answer(text='\n'.join(all_channels))
+async def process_to_get_channels(message: Message):
+    user_channels = await get_users_channels(message.from_user.id)
+    channels_name = [channel.channel_name for channel in user_channels]
+    if channels_name:
+        await message.answer(text='\n'.join(channels_name))
     else:
         await message.answer(text=LEXICON['empty_channel_list'])
 
 
 @router.message(F.text == LEXICON['result'])
 async def process_result(message: Message):
-    all_channels: List[Channel.tg_url] = [i.tg_url for i in await get_all_channels()]
-    if all_channels:
+    await message.answer(text=LEXICON["waiting"])
+    user_channels = await get_users_channels(message.from_user.id)
+    channels_url = {channel.channel_name: channel.channel_url for channel in user_channels}
+    if channels_url:
 
-        parsed_data: Dict[str: Dict] = parse_text_link(all_channels)
-        for k, v in parsed_data.items():
+        parsed_data: Dict[str: Dict] = parse_text_link(channels_url)
+        for name, texts in parsed_data.items():
             text_to_send = []
-            for i in v.values():
+            for i in texts.values():
                 text_to_send.append(' '.join(i))
             await message.answer(text=LEXICON['result_out_text'].format(
-                k, len(v.keys()), '\n\n'.join(text_to_send)
+                name, len(texts.keys()), '\n\n'.join(text_to_send)
             ), disable_web_page_preview=True
             )
-
 
     else:
         await message.answer(text=LEXICON['empty_channel_list'])

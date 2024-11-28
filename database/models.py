@@ -1,24 +1,27 @@
-from sqlalchemy import String
-from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import String, INT, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-engine = create_async_engine(url='sqlite+aiosqlite:///db.sqlite3')
-
-async_session = async_sessionmaker(engine)
+from .database import Base
 
 
-class Base(AsyncAttrs, DeclarativeBase):
-    pass
+class Users(Base):
+    __tablename__ = 'users'
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(40))
+    tg_id: Mapped[int] = mapped_column(INT)
+
+    channels: Mapped[list["Channels"]] = relationship("Channels", back_populates="user")
+
+    def __repr__(self) -> str:
+        return f"User: id={self.id}, username={self.username}, telegram_id={self.tg_id}"
 
 
-class Channel(Base):
+class Channels(Base):
     __tablename__ = 'channels'
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    tg_url: Mapped[str] = mapped_column(String(50))
-    name: Mapped[str] = mapped_column(String(25), unique=True)
-
-
-async def async_main():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    channel_url: Mapped[str] = mapped_column(String(50))
+    channel_name: Mapped[str] = mapped_column(String(25))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False,  )
+    user: Mapped["Users"] = relationship("Users", back_populates="channels")
