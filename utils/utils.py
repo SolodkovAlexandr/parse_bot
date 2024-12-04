@@ -9,8 +9,10 @@ def parse_text_link(channels: list) -> dict:
         url_text = dict()
         for k, j in enumerate(tg.TelegramChannelScraper(name=i).get_items(), start=1):
             if j.date.day == dt.today().day:
-                url_text[k] = [j.url[8:].replace('/s/', '/'), j.content[:150]]
-
+                try:
+                    url_text[k] = [j.url[8:].replace('/s/', '/'), j.content[:150]]
+                except TypeError:
+                    continue
             else:
                 break
         data_dict[i] = url_text
