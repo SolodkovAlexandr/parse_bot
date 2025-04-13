@@ -1,11 +1,6 @@
-# add_channel = KeyboardButton(text="Добавить канал")
-# del_channel = KeyboardButton(text="Удалить канал")
-# get_parse = KeyboardButton(text='Получить результат')
-#
-# keyboard = ReplyKeyboardMarkup(keyboard=[[add_channel, del_channel], [get_parse]], resize_keyboard=True)
-
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
+
 from lexicon import LEXICON
 
 

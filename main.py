@@ -4,12 +4,14 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from handlers import user_handler
-from database.models import async_main
+from aiogram.types import BotCommand, BotCommandScopeDefault
 
 from configs.config import Config, load_config
+from database.base import create_table
+from handlers import user_handler
 
 logger = logging.getLogger(__name__)
+commands = [BotCommand(command="start", description="Старт бота")]
 
 
 async def main():
@@ -19,7 +21,6 @@ async def main():
                '[%(asctime)s] - %(name)s - %(message)s')
     logger.info('Starting bot')
     config: Config = load_config()
-    await async_main()
 
     bot = Bot(
         token=config.tg_bot.token,
@@ -28,9 +29,15 @@ async def main():
     dp = Dispatcher()
     dp.include_router(user_handler.router)
 
-    await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)
+    try:
+        await create_table()
+        await bot.delete_webhook(drop_pending_updates=True)
+        await bot.set_my_commands(commands, BotCommandScopeDefault())
+        await bot.send_message(chat_id=config.tg_bot.root, text='Парсинг бот запущен')
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
 
 
-asyncio.run(main())
-
+if __name__ == "__main__":
+    asyncio.run(main())
