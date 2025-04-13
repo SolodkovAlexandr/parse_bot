@@ -14,6 +14,16 @@ from utils import FSMChannelState, parse_text_link
 router: Router = Router()
 
 
+@router.message(F.text == LEXICON["back"])
+async def process_to_back(message: Message):
+    await message.answer(
+        text=LEXICON['back_mesage'],
+        reply_markup=create_nav_menu(
+                    'add_ch', 'del_ch', 'get_ch', 'result'
+                                    )
+                         )
+
+
 # команда старт, дефолтный стейт
 @router.message(CommandStart(), StateFilter(default_state))
 async def process_start_command(message: Message):
@@ -128,6 +138,16 @@ async def process_result(message: Message):
     else:
         await message.answer(text=LEXICON['empty_channel_list'])
 
+@router.message(F.text == LEXICON['select_ch'])
+async def process_to_add_channel(message: Message):
+    all_channels = [i.name for i in await get_all_channels()]
+    if all_channels:
+        numeric_ch = [f'{num+1}. {ch}' for num, ch in enumerate(all_channels)]
+        await message.answer(text='\n'.join(numeric_ch),
+                             reply_markup=create_nav_menu('back')
+                             )
+    else:
+        await message.answer(text=LEXICON['empty_channel_list'])
 
 @router.message(StateFilter(default_state))
 async def send_auto_answer(message: Message):
