@@ -57,16 +57,16 @@ async def process_to_add_channel(message: Message, state: FSMContext):
 # ожидаем валидного ввода от пользователя
 @router.message(StateFilter(FSMChannelState.add_channel), IsValidChannel())
 async def process_add_channel_sent(message: Message, channel, state: FSMContext):
-        await add_channel(
-            user_id=message.from_user.id,
-            username=message.from_user.username,
-            channel_name=channel[1],
-            channel_url=channel[0]
-        )
-        await message.answer(text=LEXICON['success_add'], reply_markup=create_nav_menu(
-            'add_ch', 'del_ch', 'get_ch', 'result'
-        ))
-        await state.clear()
+    await add_channel(
+        user_id=message.from_user.id,
+        username=message.from_user.username,
+        channel_name=channel[1],
+        channel_url=channel[0]
+    )
+    await message.answer(text=LEXICON['success_add'], reply_markup=create_nav_menu(
+        'add_ch', 'del_ch', 'get_ch', 'result'
+    ))
+    await state.clear()
 
 
 # ввели некорректный текст
