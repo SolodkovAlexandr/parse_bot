@@ -60,7 +60,6 @@ async def get_users_channels(session, user_id: int) -> Optional[List]:
     try:
         result = await session.scalars(select(Channels).filter_by(user_id=user_id))
 
-
         if not result:
             logger.info(f"Каналы для пользователя {user_id} не найдены")
             return []
